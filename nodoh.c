@@ -34,7 +34,7 @@ static void int_exit(int sig) {
 }
 
 static void show(int fd) {
-    struct mapk_s key = {}, next_key;
+    struct mapk_s key = { 0 }, next_key;
     struct mapv_s mapv;
 
     while (bpf_map_get_next_key(fd, &key, &next_key) == 0) {

@@ -70,13 +70,13 @@ static inline uint16_t get_dport(void *trans_data, void *data_end, uint8_t proto
         case IPPROTO_TCP:
             th = (struct tcphdr *) trans_data;
             if ((void *) (th + 1) > data_end) {
-                return 0;
+                return -1;
             }
             return __constant_ntohs(th->dest);
         case IPPROTO_UDP:
             uh = (struct udphdr *) trans_data;
             if ((void *) (uh + 1) > data_end) {
-                return 0;
+                return -1;
             }
             return __constant_ntohs(uh->dest);
         default:
@@ -92,13 +92,13 @@ static inline uint16_t get_sport(void *trans_data, void *data_end, uint8_t proto
         case IPPROTO_TCP:
             th = (struct tcphdr *) trans_data;
             if ((void *) (th + 1) > data_end) {
-                return 0;
+                return -1;
             }
             return __constant_ntohs(th->source);
         case IPPROTO_UDP:
             uh = (struct udphdr *) trans_data;
             if ((void *) (uh + 1) > data_end) {
-                return 0;
+                return -1;
             }
             return __constant_ntohs(uh->source);
         default:
@@ -120,12 +120,12 @@ static inline int handle_ipv4(struct xdp_md *xdp) {
         return XDP_PASS;
     }
 
-    int sport = get_sport(iph + 1, data_end, iph->protocol);
+    long sport = get_sport(iph + 1, data_end, iph->protocol);
     if (sport == -1) {
         return XDP_DROP;
     }
 
-    int dport = get_dport(iph + 1, data_end, iph->protocol);
+    long dport = get_dport(iph + 1, data_end, iph->protocol);
     if (dport == -1) {
         return XDP_DROP;
     }
@@ -153,8 +153,8 @@ static inline int handle_ipv4(struct xdp_md *xdp) {
 
        Else, pick the data from the map.
      */
-    struct mapk_s mapk = {};
-    struct mapv_s mapv = {}, *mapvp;
+    struct mapk_s mapk = { 0 };
+    struct mapv_s mapv = { 0 }, *mapvp;
 
     mapk.family = AF_INET;;
     mapk.saddr.v4 = iph->saddr;
