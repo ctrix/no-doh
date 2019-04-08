@@ -7,7 +7,7 @@ CFLAGS :=	-pipe \
 #CPPFLAGS := -I $(KDIR)/tools/lib -I /usr/include/x86_64-linux-gnu/
 #LDFLAGS := -L $(KDIR)/tools/lib/bpf
 
-LDLIBS := -lelf
+LDLIBS := -lelf -lm
 BIN    := knodoh.o nodoh nodoh.o
 
 all: $(BIN)

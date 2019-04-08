@@ -110,6 +110,7 @@ static inline int handle_ipv4(struct xdp_md *xdp) {
     void *data_end = (void *) (long) xdp->data_end;
     void *data = (void *) (long) xdp->data;
     struct iphdr *iph = data + sizeof(struct ethhdr);
+    long pktsize = data_end - data - sizeof(struct ethhdr) - sizeof(struct iphdr) - sizeof(struct tcphdr);
 
     if ((void *) (iph + 1) > data_end) {
         return XDP_DROP;
@@ -165,7 +166,7 @@ static inline int handle_ipv4(struct xdp_md *xdp) {
     //__builtin_memcpy((void *) &mapk.daddr.v4, (void *) &iph->daddr, sizeof(mapk.daddr.v4));
 
     if (th->syn && th->ack) {
-        bpf_printk("new %d -> %d\n", mapk.sport, mapk.dport);
+        bpf_printk("new: (%d -> %d) - %d\n", mapk.sport, mapk.dport, pktsize);
         __builtin_memset(&mapv, 0, sizeof(struct mapv_s));
         mapv.start = bpf_ktime_get_ns();
         mapv.last = bpf_ktime_get_ns();
@@ -176,8 +177,8 @@ static inline int handle_ipv4(struct xdp_md *xdp) {
     else if (th->rst || th->fin) {
         mapvp = bpf_map_lookup_elem(&conns, &mapk);
         if (mapvp) {
+            mapvp->last = bpf_ktime_get_ns();
             mapvp->end = bpf_ktime_get_ns();
-
             bpf_printk("end %d\n", mapvp->npkts);
             return XDP_PASS;
         }
@@ -185,9 +186,16 @@ static inline int handle_ipv4(struct xdp_md *xdp) {
         mapvp = bpf_map_lookup_elem(&conns, &mapk);
         if (mapvp) {
             __sync_fetch_and_add(&mapvp->npkts, 1);
+            if ( mapvp->npkts >= MIN_PACKETS ) {
+                __sync_fetch_and_add(&mapvp->totsize, pktsize);
+                __sync_fetch_and_add(&mapvp->totsq, pktsize * pktsize);
+                bpf_printk("upd %d %d **\n", mapvp->npkts, pktsize);
+            }
+            else {
+                bpf_printk("upd %d %d\n", mapvp->npkts, pktsize);
+            }
             mapvp->last = bpf_ktime_get_ns();
 
-            bpf_printk("upd %d\n", mapvp->npkts);
             return XDP_PASS;
         }
     }

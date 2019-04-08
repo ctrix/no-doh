@@ -15,6 +15,7 @@
 #include <sys/resource.h>
 #include <arpa/inet.h>          // inet_ntop
 #include <errno.h>              // ENOENT
+#include <math.h>               // sqrt
 
 #include <stdint.h>
 #include "common.h"
@@ -41,21 +42,26 @@ static void show(int fd) {
         char sip[64], dip[64];
         const char *sp, *dp;
 
-        if ( bpf_map_lookup_elem(fd, &next_key, &mapv) != ENOENT ) {
+        if ( bpf_map_lookup_elem(fd, &next_key, &mapv) != ENOENT && mapv.npkts >= MIN_PACKETS ) {
             sp = inet_ntop(next_key.family, &next_key.saddr.v4, sip, sizeof(sip));
             dp = inet_ntop(next_key.family, &next_key.daddr.v4, dip, sizeof(dip));
+
+            double avg   = (double) mapv.totsize / mapv.npkts;
+            double stdev = (double) sqrt( (mapv.totsq - (mapv.totsize * mapv.totsize / mapv.npkts)) / mapv.npkts);
+
             printf(">> %s:%d * %s:%d\n", sp, next_key.sport, dp, next_key.dport);
-            printf("   %ld pkts  %ld %.3f %s\n", mapv.npkts, mapv.start / 1000000000, ((double) mapv.last - mapv.start) / 1000000000, (mapv.end > 0) ? "**" : "" );
+            printf("   %ld pkts  %ld %.3f %s MEAN STDDEV: %.2f %.2f\n", mapv.npkts, mapv.start / 1000000000, ((double) mapv.last - mapv.start) / 1000000000, (mapv.end > 0) ? "**" : "", avg, stdev );
 
             if ( mapv.end > 0 ) {
                 bpf_map_delete_elem(fd, &next_key);
             }
-
         }
         else {
-            printf("Lookup -> ENOENT\n");
+            /* TODO Create entry and mark to delete */
         }
         key = next_key;
+
+        return;
     }
 
     return;

@@ -4,6 +4,18 @@
 #define KDEBUG
 #define DOH_PORT 443
 #define MAX_CONNS_ENTRIES       256U
+#define MIN_PACKETS 10
+
+/********************************************************************
+* Description:
+* Author: root <>
+* Created at: Mon Apr  8 21:22:13 UTC 2019
+* Computer: debianOne
+* System: Linux 4.19.0-0.bpo.4-amd64 on x86_64
+*
+* Copyright (c) 2019 root  All rights reserved.
+*
+********************************************************************/
 
 enum bpf_attach_type {
     BPF_CGROUP_INET_INGRESS,
@@ -42,8 +54,20 @@ struct mapk_s {
 };
 
 struct mapv_s {
+    /*
+        npkts, totsize and totsq are needed for Welford’s method to
+        calculate the connection packet size and stddev.
+        Kernel space will update the counters, user space will do the
+        harder math.
+     */
     uint64_t npkts;
-    uint32_t sseq;
+    uint64_t totsize;
+    uint64_t totsq;
+    /*
+        These are needed to get the connection length, needed to
+        understand if it's a simple TLS connection or some daemon trying
+        to tunnel data over HTTPS.
+    */
     uint64_t start;
     uint64_t last;
     uint64_t end;
